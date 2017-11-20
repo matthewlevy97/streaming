@@ -1,0 +1,16 @@
+{
+  "name": "streaming",
+  "version": "1.0.0",
+  "description": "Video streaming server for webm videos",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "author": "Matthew Levy",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "express": "^4.16.2",
+    "fluent-ffmpeg": "^2.1.2",
+    "socket.io": "^2.0.4"
+  }
+}
