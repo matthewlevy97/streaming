@@ -1,7 +1,7 @@
 $(document).ready(function() {
 
     var mediaURL  = "/media/";
-    var mediaList = ["current", "next"];
+    var mediaList = [];
     var tracker = 0;
 
     var muted   = true;
@@ -35,6 +35,11 @@ $(document).ready(function() {
     function createPlayer() {
         console.log("Creating media player");
 
+        if(mediaList[0] == null) {
+            console.log("No media to play");
+            return;
+        }
+
         // Player 1
         var $player1 = $("<video>", {
             id: "video_player_1",
@@ -43,7 +48,7 @@ $(document).ready(function() {
         $player1.append(
             $("<source>", {
                 id: "player_source",
-                src: mediaURL + mediaList[tracker++ % mediaList.length],
+                src: mediaURL + mediaList[tracker++ % mediaList.length].url,
                 type: "video/webm"
             })
         );
@@ -56,7 +61,7 @@ $(document).ready(function() {
         $player2.append(
             $("<source>", {
                 id: "player_2_source",
-                src: mediaURL + mediaList[tracker++ % mediaList.length],
+                src: mediaURL + mediaList[tracker++ % mediaList.length].url,
                 type: "video/webm"
             })
         );
@@ -64,14 +69,32 @@ $(document).ready(function() {
 
         // Add event handlers
         $player1.on('play', function() {
-            var temp = $other;
-            $other = $currentPlayer;
-            $currentPlayer = temp;
+            $("#videoInfoTitle").html(mediaList[(tracker - 2) % mediaList.length].title);
+            $("#videoInfoArtist").html(mediaList[(tracker - 2) % mediaList.length].artist);
+            $("#videoInfoPubDate").html(mediaList[(tracker - 2) % mediaList.length].publish_date);
+        });
+        $player1.on("ended", function() {
+            console.log("player1 ended");
+            $player1.hide();
+
+            $player1.get(0).src = mediaURL + mediaList[tracker++ % mediaList.length].url;
+
+            $player2.get(0).play();
+            $player2.show();
         });
         $player2.on('play', function() {
-            var temp = $other;
-            $other = $currentPlayer;
-            $currentPlayer = temp;
+            $("#videoInfoTitle").html(mediaList[(tracker - 2) % mediaList.length].title);
+            $("#videoInfoArtist").html(mediaList[(tracker - 2) % mediaList.length].artist);
+            $("#videoInfoPubDate").html(mediaList[(tracker - 2) % mediaList.length].publish_date);
+        });
+        $player2.on("ended", function() {
+            console.log("player 2 ended");
+            $player2.hide();
+
+            $player2.get(0).src = mediaURL + mediaList[tracker++ % mediaList.length].url;
+
+            $player1.get(0).play();
+            $player1.show();
         });
 
         var $muteImage = $("<img>", {
@@ -93,6 +116,17 @@ $(document).ready(function() {
         $("#streamable").append($muteImage);
         $("#streamable").append($playImage);
 
+        var $videoInfo = $("<div>", {
+            id: "videoInfo"
+        }).append(
+            $("<span>", {id: "videoInfoTitle"})
+        ).append($("<br>")).append(
+            $("<span>", {id: "videoInfoArtist"})
+        ).append($("<br>")).append(
+            $("<span>", {id: "videoInfoPubDate"})
+        );
+        $("#streamable").append($videoInfo);
+
         $('#streamable').on('click', function() {
             if(!started) {
                 $other = $player2;
@@ -101,7 +135,6 @@ $(document).ready(function() {
                 $currentPlayer.get(0).play();
                 $currentPlayer.get(0).currentTime = mediaStartTime;
 
-                reload();
                 started = true;
             }
 
@@ -112,24 +145,8 @@ $(document).ready(function() {
             splash($player1);
         });
 
-        // Play the next track
-        function reload() {
-            var timeout = ($currentPlayer.get(0).duration - $currentPlayer.get(0).currentTime);
-            if(timeout <= 0.05) {
-                $other.get(0).play();
-                $other.show();
-
-                $currentPlayer.hide();
-
-                $currentPlayer.get(0).src = mediaURL + mediaList[tracker++ % mediaList.length];
-            }
-
-            // Decreases the delay as the next track approaches
-            timeout *= 500.0;
-            setTimeout(reload, timeout > 50 ? timeout : 50);
-        }
-
         playerInitialized = true;
+        console.log("Player Created");
     }
 
     console.log("Connected to server");
@@ -152,12 +169,13 @@ $(document).ready(function() {
 
         if(!playerInitialized) {
             createPlayer();
-            console.log("Player Created");
         }
     });
 
     // Load initial information
     socket.emit('playlist');
+
+    $("body").css("background-color", "black");
 
     // Setup done
     console.log("Setup Done");

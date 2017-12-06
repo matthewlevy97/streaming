@@ -22,6 +22,23 @@
     transition: opacity 150ms;
 }
 
-body {
-    background-color: black;
+#videoInfo {
+    position: absolute;
+    color: #FFF;
+    text-align: center;
+    font-size: 30px;
+    margin: 0;
+    bottom: 10%;
+    left: 20%;
+    transform: translate(-50%, -50%);
+}
+
+table, th, td {
+    margin:10px 0;
+    border:solid 1px #333;
+    padding:2px 4px;
+    font:15px Verdana;
+}
+th {
+    font-weight:bold;
 }
