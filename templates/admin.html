@@ -2,19 +2,32 @@
     <head>
         <script src="/js/jquery-3.2.1.min.js"></script>
         <script src="/js/admin.js"></script>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
         <link rel="stylesheet" type="text/css" href="/css/main.css" />
     </head>
     <body>
-        <h1>Admin</h1>
-        <div id="mediaTbl"></div>
-        <div>
-            <form id="insertData">
-                <input type="text" name="artist" value="Artist" />
-                <input type="text" name="title" value="Title" />
-                <input type="text" name="publish_date" value="Publish Date" />
-                <input type="text" name="url" value="URL" />
-                <input type="button" name="submitBtn" id="submitBtn" value="Save" />
-            </form>
+        <h1 class="text-center">Control Panel</h1>
+        
+        <div class="well">
+            <h4>Video Listing</h4>
+            <div id="mediaTbl"></div>
+            <div>
+                <form id="insertData">
+                    <input type="text" name="artist" placeholder="Artist" />
+                    <input type="text" name="title" placeholder="Title" />
+                    <input type="text" name="publish_date" placeholder="Publish Date" />
+                    <input type="text" name="url" placeholder="URL" />
+                    <button type="button" name="submitBtn" id="submitBtn" class="btn btn-success">Submit</button>
+                </form>
+            </div>
         </div>
+
+        <div>
+            <button type="button" name="newTheatreBtn" id="newTheatreBtn" class="btn btn-success">
+                Create New Theatre
+            </button>
+        </div>
+
+        <div id="theatres"></div>
     </body>
 </html>

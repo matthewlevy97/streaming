@@ -14,7 +14,6 @@ var con = mysql.createConnection({
     password: "root"
 });
 
-
 con.query("CREATE DATABASE media_db", function (err, result) {
     if(!err) console.log("Database created");
 
@@ -25,10 +24,8 @@ con.query("CREATE DATABASE media_db", function (err, result) {
     });
 });
 
-
-var startTime = new Date().getTime();
-var playlist = [];
-var times    = [];
+var theatres = [];
+var playlist = {};
 
 // START OF ROUTES
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -42,12 +39,58 @@ app.get("/", function(req, res) {
 app.get("/admin", function(req, res) {
     res.sendFile(__dirname + "/templates/admin.html");
 });
-app.post("/admin/media", function(req, res) {
-    con.query("SELECT * FROM media_db.MediaList", function(err, result) {
-        res.json(result);
-    });
+
+// Admin API
+app.post("/admin/API/v1/pause", function(req, res) {
+    var theatreNumber = req.body.theatreNumber;
+    var pauseStatus = req.body.pause;
+    
+    if(pauseStatus) {
+        pauseStream(theatreNumber);
+    } else {
+        resumeStream(theatreNumber);
+    }
+
+    res.json({'success': true});
 });
-app.post("/admin/save", function(req, res) {
+app.post("/admin/API/v1/nextTrack", function(req, res) {
+    var theatreNumber = req.body.theatreNumber;
+
+    advancePlayer(theatreNumber);
+    reloadPlaylist(theatreNumber);
+
+    res.json({'success': true});
+});
+app.post("/admin/API/v1/updatePlaylist", function(req, res) {
+    var theatreNumber = req.body.theatreNumber;
+    var playlist = req.body.playlist;
+
+    theatres[theatreNumber].playlist = [];
+    for(var i = 0; i < playlist.length; i++) {
+        addMedia(theatreNumber, playlist[i]);
+    }
+
+    res.json({'success': true});
+});
+app.post("/admin/API/v1/media", function(req, res) {
+    var result = {'playlist': playlist, 'theatres': []};
+    for(var i = 0; i < theatres.length; i++) {
+        var theatre = theatres[i];
+        result['theatres'].push({
+            'theatre': theatre['theatre'],
+            'startTime': theatre['startTime'],
+            'playlist': theatre['playlist'],
+            'paused': theatre['paused']
+        });
+    }
+
+    res.json(result);
+});
+app.post("/admin/API/v1/create", function(req, res) {
+    createTheatre();
+    res.json({'success': true});
+});
+app.post("/admin/API/v1/save", function(req, res) {
     var title = req.body.title;
     var artist = req.body.artist;
     var publish_date = req.body.publish_date;
@@ -60,11 +103,18 @@ app.post("/admin/save", function(req, res) {
             else res.json({success: true});
     });
 
-    for(var song in req.body) {
-        playlist.push(req.body[song]);
-        ffmpeg.ffprobe(__dirname + '/static/media/' + req.body[song][3], function(err, metadata) {
-            times.push(metadata.format.duration);
-        })
+    result = req.body;
+    for(var res in result) {
+        playlist[result[res].url] = {
+            'title': result[res].title,
+            'artist': result[res].artist,
+            'publish_date': result[res].publish_date,
+            'url': result[res].url
+        };
+        ffmpeg.ffprobe(__dirname + '/static/media/' + result[res].url, function(err, metadata) {
+            var currentMedia = metadata.format.filename.replace(__dirname + '/static/media/', '');
+            playlist[currentMedia]['duration'] = metadata.format.duration;
+        });
     }
 });
 
@@ -76,43 +126,108 @@ app.get("/play", function(req, res) {
 
 con.query("SELECT * FROM media_db.MediaList", function(err, result) {
     for(var res in result) {
-        playlist.push(result[res]);
+        playlist[result[res].url] = {
+            'title': result[res].title,
+            'artist': result[res].artist,
+            'publish_date': result[res].publish_date,
+            'url': result[res].url
+        };
         ffmpeg.ffprobe(__dirname + '/static/media/' + result[res].url, function(err, metadata) {
-            times.push(metadata.format.duration);
+            var currentMedia = metadata.format.filename.replace(__dirname + '/static/media/', '');
+            playlist[currentMedia]['duration'] = metadata.format.duration;
         });
     }
 });
 
-io.on('connection', function(socket) {
-    console.log("New connection");
+function createTheatre() {
+    var theatreNumber = theatres.length;
+    
+    var stream = io.of('/stream/' + theatreNumber);
+    stream.currentTheatre = theatreNumber;
 
-    socket.on('disconnect', function(socket) {
-        console.log("Connection died");
+    theatres.push({'theatre': theatreNumber, 'stream': stream, 'startTime': new Date().getTime(),
+        'playlist': [], 'paused': {'startTime': null, 'status': false}});
+
+    stream.on('connection', function(socket) {
+        socket.on('playlist', function(msg) {
+            socket.emit('playlist', {playlist: theatres[stream.currentTheatre]['playlist'],
+                currentTime: (new Date().getTime() - theatres[stream.currentTheatre]['startTime'])});
+        });
     });
-    socket.on('playlist', function(msg) {
-        socket.emit('playlist', {playlist: playlist, currentTime: (new Date().getTime() - startTime)});
-    });
-});
 
-function advancePlayer() {
-    console.log("Advancing player to next track");
-
-    playlist.push(playlist.shift());
-    times.push(times.shift());
-    startTime = new Date().getTime();
-    setTimeout(advancePlayer, (times[1] - (new Date().getTime() - startTime)) * 1000.0);
-
-    console.log("Playing: " + playlist[0].title);
+    console.log('Created new theatre: ' + theatreNumber);
 }
 
-setTimeout(function() {
-    setTimeout(advancePlayer, (times[1] - (new Date().getTime() - startTime)) * 1000.0);
-}, 1000);
+function pauseStream(theatreNumber) {
+    if(!theatres[theatreNumber]['paused']['status']) {
+        console.log('Pausing stream ' + theatreNumber);
 
-setInterval(function() {
-    var time =  new Date().getTime() - startTime
-    io.sockets.emit('sync', {currentTime: time}, {for: 'everyone'});
-}, 1000);
+        // Save the time the stream was paused at
+        theatres[theatreNumber]['paused']['status'] = true;
+        theatres[theatreNumber]['paused']['startTime'] = new Date().getTime();
+
+        theatres[theatreNumber]['stream'].emit('pause');
+    }
+}
+function resumeStream(theatreNumber) {
+    if(theatres[theatreNumber]['paused']['status']) {
+        console.log('Resuming stream ' + theatreNumber);
+
+        // Calculate pause duration and add that to the start time of the stream
+        theatres[theatreNumber]['paused']['status'] = false;
+        theatres[theatreNumber]['startTime'] += (new Date().getTime() - theatres[theatreNumber]['paused']['startTime']);
+
+        theatres[theatreNumber]['stream'].emit('resume');
+    }
+}
+
+function addMedia(theatreNumber, mediaName) {
+    for(var media in playlist) {
+        if(media === mediaName.url) {
+            theatres[theatreNumber]['playlist'].push(playlist[media]);
+            console.log('Added ' + mediaName.url + ' to theatre ' + theatreNumber);
+            return;
+        }
+    }
+
+    console.log('Could not add media ' + mediaName);
+}
+
+function reloadPlaylist(theatreNumber) {
+    console.log('Reloading Playlist ' + theatreNumber);
+    theatres[theatreNumber]['stream'].emit('reloadPlaylist');
+}
+
+function advancePlayer(theatreNumber) {
+    console.log("Advancing player to next track");
+    
+    if(theatres[theatreNumber]['playlist'].length == 0) {
+        console.log("Playlist empty");
+        return;
+    }
+    
+    theatres[theatreNumber]['playlist'].push(theatres[theatreNumber]['playlist'].shift());
+    theatres[theatreNumber]['startTime'] = new Date().getTime();
+
+    console.log("Playing: " + theatres[theatreNumber]['playlist'][0].title);
+}
+
+function setupSyncing() {
+    for(var i = 0; i < theatres.length; i++) {
+        var theatre = theatres[i];
+        var time =  new Date().getTime() - theatre['startTime'];
+        
+        if(!theatre.paused.status && theatre.playlist.length > 0) {
+            if(theatre['playlist'][0]['duration'] * 1000 <= new Date().getTime() - theatre['startTime']) {
+                advancePlayer(i);
+            }
+        }
+        
+        theatre['stream'].emit('sync', {currentTime: time});
+    }
+}
+
+setInterval(setupSyncing, 1000);
 
 http.listen(8000, function() {
     console.log("Listening on *:8000");
