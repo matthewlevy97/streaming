@@ -104,14 +104,14 @@ app.post("/admin/API/v1/save", function(req, res) {
     });
 
     result = req.body;
-    for(var res in result) {
-        playlist[result[res].url] = {
-            'title': result[res].title,
-            'artist': result[res].artist,
-            'publish_date': result[res].publish_date,
-            'url': result[res].url
+    for(var song in result) {
+        playlist[result[song][3]] = {
+            'title': result[song][0],
+            'artist': result[song][1],
+            'publish_date': result[song][2],
+            'url': result[song][3]
         };
-        ffmpeg.ffprobe(__dirname + '/static/media/' + result[res].url, function(err, metadata) {
+        ffmpeg.ffprobe(__dirname + '/static/media/' + result[song][3], function(err, metadata) {
             var currentMedia = metadata.format.filename.replace(__dirname + '/static/media/', '');
             playlist[currentMedia]['duration'] = metadata.format.duration;
         });

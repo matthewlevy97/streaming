@@ -1,1 +1,1 @@
-youtube-dl --format webm --output "static/media/%(title)s.webm" $1
+youtube-dl --format mp4 --output "static/media/%(title)s.mp4" $1
