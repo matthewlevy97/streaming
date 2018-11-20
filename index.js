@@ -80,7 +80,8 @@ app.post("/admin/API/v1/media", function(req, res) {
             'theatre': theatre['theatre'],
             'startTime': theatre['startTime'],
             'playlist': theatre['playlist'],
-            'paused': theatre['paused']
+            'paused': theatre['paused'],
+            'activeUsers': theatre['activeUsers'],
         });
     }
 
@@ -145,10 +146,15 @@ function createTheatre() {
     var stream = io.of('/stream/' + theatreNumber);
     stream.currentTheatre = theatreNumber;
 
-    theatres.push({'theatre': theatreNumber, 'stream': stream, 'startTime': new Date().getTime(),
-        'playlist': [], 'paused': {'startTime': null, 'status': false}});
+    theatres.push({'theatre': theatreNumber, 'stream': stream, 'activeUsers': 0,
+        'startTime': new Date().getTime(), 'playlist': [], 'paused': {'startTime': null, 'status': false}});
 
     stream.on('connection', function(socket) {
+	theatres[stream.currentTheatre]['activeUsers']++;
+	socket.on('disconnect', function() {
+		theatres[stream.currentTheatre]['activeUsers']--;
+	});
+	
         socket.on('playlist', function(msg) {
             socket.emit('playlist', {playlist: theatres[stream.currentTheatre]['playlist'],
                 currentTime: (new Date().getTime() - theatres[stream.currentTheatre]['startTime'])});

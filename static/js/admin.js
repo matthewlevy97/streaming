@@ -64,7 +64,8 @@ $(document).ready(function() {
             'theatre': theatre['theatre'],
             'startTime': theatre['startTime'],
             'playlist': theatre['playlist'],
-            'paused': theatre['paused']
+            'paused': theatre['paused'],
+            'activeUsers': theatre['activeUsers'],
             */
             var $theatreDiv = $('<div>', {'class': 'well'});
             $theatreDiv.val(theatreNumber);
@@ -79,6 +80,12 @@ $(document).ready(function() {
                 'Current Time: ' + Math.floor((theatreTime - theatre.startTime) / 1000));
             $currentTimeText.appendTo($theatreStatus);
             
+            // Show the number of active users
+            var $activeUserDiv = $('<div>');
+            var $activeCount = $('<h4>', {'id': 'activeCountHeader'}).text('Active User Count: ' + theatre.activeUsers);
+            $activeCount.appendTo($activeUserDiv);
+            $activeUserDiv.appendTo($theatreStatus);
+
             // Pause / resume currently playing media
             var $statusText = $('<h4>').text('Status: ');
             var $pauseButton = $('<button>', {
@@ -101,7 +108,7 @@ $(document).ready(function() {
             $statusText.appendTo($theatreStatus);
             $pauseButton.appendTo($statusText);
             $advanceTrackButton.appendTo($statusText)
-
+            
             // Display playlist for theatre
             var $playlistDiv = $('<div>');
             $.makeTable(
